@@ -1,0 +1,12 @@
+{
+  "name": "student-portal",
+  "version": "1.0.0",
+  "description": "Dashboard frontend + proxy server that consumes a Moodle-hosted LMS's Web Services API.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

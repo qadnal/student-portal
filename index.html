@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-900:#0A1F33;
+    --navy-800:#0F2A44;
+    --navy-700:#173A5E;
+    --teal-500:#14B8A6;
+    --teal-600:#0D9488;
+    --sand-100:#F4EEE2;
+    --sand-200:#ECE2CE;
+    --bg:#F3F5F7;
+    --card:#FFFFFF;
+    --text-900:#101828;
+    --text-600:#5B6472;
+    --text-400:#98A2B3;
+    --success:#16A34A;
+    --border:#E7EAEE;
+    --radius:14px;
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text-900);
+    display:flex;
+    min-height:100vh;
+  }
+  h1,h2,h3,.display{font-family:'Sora',system-ui,sans-serif;}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:236px;
+    flex-shrink:0;
+    background:var(--card);
+    border-right:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    padding:22px 16px;
+    position:sticky;
+    top:0;
+    height:100vh;
+  }
+  .brand{
+    display:flex;align-items:center;gap:10px;
+    padding:4px 8px 22px 8px;
+  }
+  .brand svg{flex-shrink:0;}
+  .brand-text{font-family:'Sora';font-weight:700;font-size:16px;line-height:1.15;color:var(--navy-800);}
+  .brand-text span{display:block;font-family:'Inter';font-weight:500;font-size:10px;letter-spacing:.14em;color:var(--text-400);}
+
+  .nav{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;flex:1;}
+  .nav a{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 12px;border-radius:10px;
+    color:var(--text-600);text-decoration:none;font-size:14px;font-weight:500;
+    transition:background .15s ease, color .15s ease;
+  }
+  .nav a svg{flex-shrink:0;opacity:.8;}
+  .nav a:hover{background:var(--sand-100);color:var(--navy-800);}
+  .nav a.active{background:var(--navy-800);color:#fff;}
+  .nav a.active svg{opacity:1;}
+
+  .help-card{
+    margin-top:14px;
+    border-radius:var(--radius);
+    background:linear-gradient(160deg,var(--navy-800),var(--navy-900));
+    color:#fff;padding:18px;position:relative;overflow:hidden;
+  }
+  .help-card::after{
+    content:"";position:absolute;inset:0;
+    background-image:
+      radial-gradient(circle at 85% 12%, rgba(20,184,166,.35) 0, transparent 40%),
+      linear-gradient(115deg, transparent 40%, rgba(255,255,255,.04) 41%, transparent 42%);
+    pointer-events:none;
+  }
+  .help-card h4{margin:8px 0 6px;font-family:'Sora';font-size:14px;}
+  .help-card p{margin:0 0 12px;font-size:12.5px;line-height:1.5;color:#C9D3DE;}
+  .help-card .qmark{
+    width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.12);
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;
+  }
+  .help-btn{
+    display:flex;align-items:center;gap:8px;
+    background:#fff;color:var(--navy-800);
+    border:none;border-radius:9px;padding:9px 12px;font-size:12.5px;font-weight:600;
+    width:100%;cursor:pointer;
+  }
+
+  /* ---------- Main ---------- */
+  .main{flex:1;min-width:0;padding:22px 32px 40px;}
+  .topbar{display:flex;justify-content:flex-end;align-items:center;gap:18px;margin-bottom:26px;}
+  .icon-btn{
+    width:38px;height:38px;border-radius:10px;background:var(--card);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;color:var(--text-600);cursor:pointer;
+  }
+  .profile{display:flex;align-items:center;gap:9px;cursor:pointer;}
+  .avatar{width:32px;height:32px;border-radius:50%;background:var(--teal-500);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;}
+  .profile span{font-size:14px;font-weight:600;color:var(--text-900);}
+
+  h1.welcome{font-size:26px;margin:0 0 22px;color:var(--navy-800);}
+
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:24px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow);}
+  .card.dark{
+    background:linear-gradient(160deg,var(--navy-800),var(--navy-900));
+    border:none;color:#fff;position:relative;overflow:hidden;
+  }
+  .card.dark::before{
+    content:"";position:absolute;right:-10px;top:-10px;width:130px;height:130px;
+    background:radial-gradient(circle, rgba(20,184,166,.35), transparent 70%);
+  }
+  .card .label{font-size:13px;font-weight:500;color:var(--text-600);margin-bottom:14px;}
+  .card.dark .label{color:#B7C2CE;}
+  .stat-main{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;}
+  .stat-num{font-family:'Sora';font-weight:700;font-size:34px;color:var(--navy-800);}
+  .card.dark .stat-num{color:#fff;}
+  .stat-num.green{color:var(--success);}
+  .stat-sub{font-size:12px;color:var(--text-400);}
+  .stat-sub b{font-size:12px;}
+  .delta{font-size:12.5px;color:var(--success);font-weight:600;margin-top:10px;display:flex;align-items:center;gap:4px;}
+  .card.dark .delta{color:#5EEAD4;}
+  .stat-pair{display:flex;gap:34px;}
+  .stat-pair .stat-block .stat-num{font-size:30px;}
+  .stat-pair .stat-block:first-child .stat-num{color:var(--success);}
+
+  .banner{
+    position:relative;border-radius:var(--radius);overflow:hidden;
+    background:var(--sand-100);
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 40px;min-height:200px;margin-bottom:24px;
+  }
+  .banner::before{
+    content:"";position:absolute;inset:0;opacity:.5;
+    background-image:
+      radial-gradient(circle at 4px 4px, rgba(15,42,68,.14) 1.6px, transparent 0);
+    background-size:26px 26px;
+  }
+  .banner-copy{position:relative;max-width:420px;}
+  .banner-copy .eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal-600);margin-bottom:8px;}
+  .banner-copy h2{font-size:24px;margin:0 0 10px;color:var(--navy-800);}
+  .banner-copy p{margin:0 0 18px;color:var(--text-600);font-size:14.5px;line-height:1.5;}
+  .btn-primary{
+    background:var(--teal-600);color:#fff;border:none;border-radius:9px;
+    padding:11px 20px;font-size:14px;font-weight:600;cursor:pointer;
+    box-shadow:0 6px 14px -6px rgba(13,148,136,.6);
+  }
+  .btn-primary:hover{background:var(--teal-500);}
+  .banner-graphic{position:relative;width:190px;height:190px;flex-shrink:0;}
+
+  .table-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+  .table-card h3{padding:20px 22px 4px;margin:0;font-size:17px;color:var(--navy-800);}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  thead tr{background:var(--navy-800);color:#fff;}
+  thead th{text-align:left;padding:13px 22px;font-weight:600;font-size:12.5px;letter-spacing:.02em;}
+  tbody td{padding:15px 22px;border-bottom:1px solid var(--border);color:var(--text-900);}
+  tbody tr:last-child td{border-bottom:none;}
+  .status-paid{color:var(--success);font-weight:600;}
+  .status-pending{color:#B45309;font-weight:600;}
+  .link{color:var(--teal-600);text-decoration:none;font-weight:600;}
+  .empty-row td{text-align:center;color:var(--text-400);padding:26px;}
+
+  .skeleton{background:linear-gradient(90deg,#eef0f2 25%,#f6f7f8 37%,#eef0f2 63%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:6px;color:transparent!important;}
+  @keyframes shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+
+  @media (max-width:980px){
+    .stat-row{grid-template-columns:1fr;}
+    .sidebar{position:fixed;left:-260px;z-index:20;transition:left .2s;}
+    .sidebar.open{left:0;}
+    .banner{flex-direction:column;align-items:flex-start;padding:26px;gap:18px;}
+    .banner-graphic{width:100%;height:120px;}
+  }
+  a:focus-visible, button:focus-visible{outline:2px solid var(--teal-600);outline-offset:2px;}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="brand">
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+      <circle cx="15" cy="15" r="14" stroke="#14B8A6" stroke-width="1.4"/>
+      <circle cx="15" cy="15" r="3" fill="#0F2A44"/>
+      <circle cx="15" cy="5" r="2" fill="#14B8A6"/>
+      <circle cx="24" cy="20" r="2" fill="#14B8A6"/>
+      <circle cx="6" cy="20" r="2" fill="#14B8A6"/>
+      <line x1="15" y1="15" x2="15" y2="7" stroke="#0F2A44" stroke-width="1.2"/>
+      <line x1="15" y1="15" x2="22.4" y2="19" stroke="#0F2A44" stroke-width="1.2"/>
+      <line x1="15" y1="15" x2="7.6" y2="19" stroke="#0F2A44" stroke-width="1.2"/>
+    </svg>
+    <div class="brand-text">Student Portal<span>POWERED BY MOODLE</span></div>
+  </div>
+
+  <ul class="nav">
+    <li><a href="#" class="active" data-view="dashboard">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Dashboard
+    </a></li>
+    <li><a href="#" data-view="courses">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/></svg>
+      Courses
+    </a></li>
+    <li><a href="#" data-view="grades">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 17V9M15 17V5M4 20h16"/></svg>
+      Grades
+    </a></li>
+    <li><a href="#" data-view="payments">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>
+      Payments
+    </a></li>
+    <li><a href="#" data-view="deferments">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+      Deferments
+    </a></li>
+    <li><a href="#" data-view="exams">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/></svg>
+      Manage Exams
+    </a></li>
+  </ul>
+
+  <div class="help-card">
+    <div class="qmark">?</div>
+    <h4>Help Centre</h4>
+    <p>Having trouble? Contact support for more questions.</p>
+    <button class="help-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="#14B8A6"><path d="M12 2a10 10 0 00-8.5 15.3L2 22l4.9-1.4A10 10 0 1012 2z"/></svg>
+      Contact Support
+    </button>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="icon-btn" title="Notifications">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+    </div>
+    <div class="profile">
+      <div class="avatar" id="avatarInitials">--</div>
+      <span id="profileName">Loading…</span>
+    </div>
+  </div>
+
+  <h1 class="welcome">Welcome, <span id="welcomeName">…</span></h1>
+
+  <section class="stat-row">
+    <div class="card">
+      <div class="label">Last Grade Point Average</div>
+      <div class="stat-num" id="lastGpa">--</div>
+      <div class="delta" id="lastGpaDelta">&nbsp;</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Completed Course Units</div>
+      <div class="stat-pair">
+        <div class="stat-block">
+          <div class="stat-num" id="completedUnits">--</div>
+          <div class="stat-sub">Completed units</div>
+        </div>
+        <div class="stat-block">
+          <div class="stat-num" id="requiredUnits">--</div>
+          <div class="stat-sub">Minimum units required</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card dark">
+      <div class="label">Cumulative Grade Point Average</div>
+      <div class="stat-num" id="cgpa">--</div>
+      <div class="delta" id="cgpaDelta">&nbsp;</div>
+    </div>
+  </section>
+
+  <section class="banner">
+    <div class="banner-copy">
+      <div class="eyebrow">Keep going</div>
+      <h2>Hello, Star!</h2>
+      <p>Check your timetable often to stay on track with courses and activities.</p>
+      <button class="btn-primary" onclick="goToClass()">Go to Class</button>
+    </div>
+    <div class="banner-graphic">
+      <svg viewBox="0 0 200 200" width="100%" height="100%">
+        <circle cx="100" cy="100" r="6" fill="#0F2A44"/>
+        <circle cx="100" cy="40" r="4" fill="#14B8A6"/>
+        <circle cx="152" cy="130" r="4" fill="#14B8A6"/>
+        <circle cx="48" cy="130" r="4" fill="#14B8A6"/>
+        <circle cx="150" cy="60" r="3" fill="#0F2A44" opacity=".5"/>
+        <circle cx="50" cy="60" r="3" fill="#0F2A44" opacity=".5"/>
+        <line x1="100" y1="100" x2="100" y2="40" stroke="#0F2A44" stroke-width="1.5" opacity=".55"/>
+        <line x1="100" y1="100" x2="152" y2="130" stroke="#0F2A44" stroke-width="1.5" opacity=".55"/>
+        <line x1="100" y1="100" x2="48" y2="130" stroke="#0F2A44" stroke-width="1.5" opacity=".55"/>
+        <line x1="100" y1="100" x2="150" y2="60" stroke="#0F2A44" stroke-width="1.2" opacity=".3"/>
+        <line x1="100" y1="100" x2="50" y2="60" stroke="#0F2A44" stroke-width="1.2" opacity=".3"/>
+      </svg>
+    </div>
+  </section>
+
+  <section class="table-card">
+    <h3>Recent Transactions</h3>
+    <table>
+      <thead>
+        <tr><th>Date</th><th>Description</th><th>Amount</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody id="txnBody">
+        <tr class="empty-row"><td colspan="5">Loading transactions…</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+/* =========================================================================
+   CONFIGURATION
+   -------------------------------------------------------------------------
+   Set API_BASE to your backend proxy (recommended — see server.js/README),
+   e.g. "/api". Do NOT put your Moodle web service token directly in this
+   file if this HTML will be served publicly: a token embedded in
+   client-side JS is visible to anyone who views source. Use the bundled
+   server.js proxy (or an equivalent backend) to hold the token server-side
+   and expose safe, narrow endpoints instead.
+   ========================================================================= */
+const API_BASE = "/api";     // proxy endpoints, see server.js
+const MIN_UNITS_REQUIRED = 72; // programme requirement; adjust or fetch from your SIS
+
+/* -------------------------------------------------------------------------
+   Moodle Web Service function reference (called BY THE PROXY, not directly
+   from this file):
+     - core_webservice_get_site_info        -> current user id, full name
+     - core_user_get_users_by_field         -> profile photo, extra fields
+     - core_enrol_get_users_courses         -> list of enrolled courses
+     - core_completion_get_activities_completion_status (per course)
+                                             -> completed vs total activities
+     - gradereport_user_get_grade_items     -> grade items & percentages,
+                                                used here to derive a GPA-like
+                                                figure (Moodle has no native
+                                                "GPA"/"CGPA" concept — see
+                                                README for the mapping used)
+   "Recent Transactions" is NOT a Moodle core concept. Moodle handles course
+   payment only via enrolment plugins (e.g. enrol_fee, or a custom payment
+   plugin) which are not guaranteed to expose a web service. The proxy
+   below stubs this from a separate payments source — wire it to whatever
+   fees/payments system you actually use (see README).
+   ------------------------------------------------------------------------- */
+
+async function api(path) {
+  const res = await fetch(`${API_BASE}${path}`, { credentials: "include" });
+  if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
+  return res.json();
+}
+
+function initials(name) {
+  return name.split(" ").filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("");
+}
+
+function formatNaira(amount) {
+  return "₦" + Number(amount).toLocaleString("en-NG", { minimumFractionDigits: 2 });
+}
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+async function loadProfile() {
+  try {
+    const me = await api("/me"); // -> { fullname, firstname }
+    document.getElementById("welcomeName").textContent = me.firstname;
+    document.getElementById("profileName").textContent = me.fullname;
+    document.getElementById("avatarInitials").textContent = initials(me.fullname);
+  } catch (e) {
+    document.getElementById("welcomeName").textContent = "Student";
+    document.getElementById("profileName").textContent = "Guest";
+    console.error(e);
+  }
+}
+
+async function loadAcademics() {
+  try {
+    const data = await api("/academic-summary");
+    // Expected shape from the proxy:
+    // { lastGpa, lastGpaDeltaPct, cgpa, cgpaDeltaPct, completedUnits, requiredUnits }
+    document.getElementById("lastGpa").textContent = data.lastGpa.toFixed(2);
+    document.getElementById("cgpa").textContent = data.cgpa.toFixed(2);
+    document.getElementById("completedUnits").textContent = data.completedUnits;
+    document.getElementById("requiredUnits").textContent = data.requiredUnits ?? MIN_UNITS_REQUIRED;
+    renderDelta("lastGpaDelta", data.lastGpaDeltaPct);
+    renderDelta("cgpaDelta", data.cgpaDeltaPct);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function renderDelta(elId, pct) {
+  const el = document.getElementById(elId);
+  if (pct === null || pct === undefined) { el.innerHTML = "&nbsp;"; return; }
+  const arrow = pct >= 0 ? "↑" : "↓";
+  el.textContent = `${arrow} ${Math.abs(pct).toFixed(2)}% vs last session`;
+}
+
+async function loadTransactions() {
+  const body = document.getElementById("txnBody");
+  try {
+    const rows = await api("/transactions"); // -> [{date, description, amount, status, receiptUrl}]
+    if (!rows.length) {
+      body.innerHTML = `<tr class="empty-row"><td colspan="5">No transactions yet.</td></tr>`;
+      return;
+    }
+    body.innerHTML = rows.map(r => `
+      <tr>
+        <td>${formatDate(r.date)}</td>
+        <td>${r.description}</td>
+        <td>${formatNaira(r.amount)}</td>
+        <td class="${r.status === 'paid' ? 'status-paid' : 'status-pending'}">• ${r.status === 'paid' ? 'Paid' : 'Pending'}</td>
+        <td>${r.receiptUrl ? `<a class="link" href="${r.receiptUrl}" target="_blank" rel="noopener">View Receipt</a>` : ""}</td>
+      </tr>
+    `).join("");
+  } catch (e) {
+    body.innerHTML = `<tr class="empty-row"><td colspan="5">Couldn't load transactions.</td></tr>`;
+    console.error(e);
+  }
+}
+
+function goToClass() {
+  // Point this at your Moodle course/dashboard URL, e.g.:
+  window.location.href = "/my-course.html";
+}
+
+loadProfile();
+loadAcademics();
+loadTransactions();
+</script>
+</body>
+</html>
