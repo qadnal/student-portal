@@ -103,7 +103,8 @@
     display:flex;align-items:center;justify-content:center;color:var(--text-600);cursor:pointer;
   }
   .profile{display:flex;align-items:center;gap:9px;cursor:pointer;}
-  .avatar{width:32px;height:32px;border-radius:50%;background:var(--teal-500);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;}
+  .avatar{width:32px;height:32px;border-radius:50%;background:var(--teal-500);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;overflow:hidden;}
+  .avatar img{width:100%;height:100%;object-fit:cover;}
   .profile span{font-size:14px;font-weight:600;color:var(--text-900);}
 
   h1.welcome{font-size:26px;margin:0 0 22px;color:var(--navy-800);}
@@ -170,6 +171,51 @@
 
   .skeleton{background:linear-gradient(90deg,#eef0f2 25%,#f6f7f8 37%,#eef0f2 63%);background-size:400% 100%;animation:shimmer 1.4s infinite;border-radius:6px;color:transparent!important;}
   @keyframes shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+
+  /* ---------- View switching ---------- */
+  .view{display:none;}
+  .view.active-view{display:block;}
+  h1.page-title{font-size:26px;margin:0 0 22px;color:var(--navy-800);}
+
+  /* ---------- Course cards ---------- */
+  .course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;}
+  .course-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+  .course-card .course-image{width:100%;height:110px;object-fit:cover;display:block;background:var(--sand-100);}
+  .course-card .course-body{padding:18px 20px;}
+  .course-card h4{margin:0 0 4px;font-size:15.5px;color:var(--navy-800);}
+  .course-card .shortname{font-size:12px;color:var(--text-400);margin-bottom:10px;}
+  .course-card .summary{font-size:13px;color:var(--text-600);line-height:1.5;margin:0 0 12px;}
+  .course-card .meta-row{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text-400);margin-bottom:14px;}
+  .progress-track{background:var(--sand-100);border-radius:99px;height:8px;overflow:hidden;margin-bottom:8px;}
+  .progress-fill{background:var(--teal-600);height:100%;border-radius:99px;}
+  .progress-label{font-size:12px;color:var(--text-600);margin-bottom:14px;}
+  .course-card .link{font-size:13px;}
+  .course-card details{margin-top:4px;border-top:1px solid var(--border);padding-top:10px;}
+  .course-card summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--navy-800);list-style:none;}
+  .course-card summary::-webkit-details-marker{display:none;}
+  .section-block{margin-top:10px;}
+  .section-block .section-name{font-size:11.5px;font-weight:600;color:var(--text-600);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+  .activity-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-900);padding:4px 0;}
+  .activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--text-400);}
+  .activity-dot.done{background:var(--success);}
+  .activity-dot.untracked{background:var(--sand-200);}
+
+  /* ---------- Grades breakdown ---------- */
+  tr.grade-course-row td{background:var(--sand-100);font-weight:700;color:var(--navy-800);}
+  tr.grade-item-row td:first-child{padding-left:38px;color:var(--text-600);}
+  .feedback-cell{font-size:12.5px;color:var(--text-400);max-width:260px;}
+
+  /* ---------- Empty state (unconnected data source) ---------- */
+  .empty-state{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:44px 32px;text-align:center;box-shadow:var(--shadow);
+  }
+  .empty-state .icon{
+    width:44px;height:44px;border-radius:12px;background:var(--sand-100);color:var(--navy-800);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 16px;
+  }
+  .empty-state h3{margin:0 0 8px;font-size:16px;color:var(--navy-800);}
+  .empty-state p{margin:0 auto;max-width:420px;font-size:13.5px;line-height:1.55;color:var(--text-600);}
 
   @media (max-width:980px){
     .stat-row{grid-template-columns:1fr;}
@@ -247,6 +293,7 @@
     </div>
   </div>
 
+  <div id="view-dashboard" class="view active-view">
   <h1 class="welcome">Welcome, <span id="welcomeName">…</span></h1>
 
   <section class="stat-row">
@@ -312,6 +359,58 @@
       </tbody>
     </table>
   </section>
+  </div>
+
+  <div id="view-courses" class="view">
+    <h1 class="page-title">Courses</h1>
+    <div class="course-grid" id="coursesGrid">
+      <div class="empty-state"><div class="icon">…</div><h3>Loading courses…</h3></div>
+    </div>
+  </div>
+
+  <div id="view-grades" class="view">
+    <h1 class="page-title">Grades</h1>
+    <section class="table-card">
+      <h3>Grade by Course</h3>
+      <table>
+        <thead><tr><th>Course / Item</th><th>Grade</th><th>Percentage</th><th>Feedback</th></tr></thead>
+        <tbody id="gradesBody">
+          <tr class="empty-row"><td colspan="4">Loading grades…</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <div id="view-payments" class="view">
+    <h1 class="page-title">Payments</h1>
+    <section class="table-card">
+      <h3>Transaction History</h3>
+      <table>
+        <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Status</th><th></th></tr></thead>
+        <tbody id="paymentsBody">
+          <tr class="empty-row"><td colspan="5">Loading transactions…</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <div id="view-deferments" class="view">
+    <h1 class="page-title">Deferments</h1>
+    <div class="empty-state">
+      <div class="icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+      </div>
+      <h3>Not connected yet</h3>
+      <p>Deferment requests aren't a Moodle concept, so there's no web service call backing this view. Wire it up to your registrar/SIS system's API once that's available, then add an <code>/api/deferments</code> route to the proxy the same way the other views are handled.</p>
+    </div>
+  </div>
+
+  <div id="view-exams" class="view">
+    <h1 class="page-title">Manage Exams</h1>
+    <div class="course-grid" id="examsGrid">
+      <div class="empty-state"><div class="icon">…</div><h3>Loading…</h3></div>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -368,10 +467,22 @@ function formatDate(iso) {
 
 async function loadProfile() {
   try {
-    const me = await api("/me"); // -> { fullname, firstname }
+    const me = await api("/me"); // -> { fullname, firstname, email, institution, department, city, country, bio, profileImageUrl, lastAccess }
     document.getElementById("welcomeName").textContent = me.firstname;
     document.getElementById("profileName").textContent = me.fullname;
-    document.getElementById("avatarInitials").textContent = initials(me.fullname);
+
+    const avatarEl = document.getElementById("avatarInitials");
+    if (me.profileImageUrl) {
+      avatarEl.innerHTML = `<img src="${me.profileImageUrl}" alt="${me.fullname}">`;
+    } else {
+      avatarEl.textContent = initials(me.fullname);
+    }
+
+    const detailBits = [me.department, me.institution, me.city, me.country].filter(Boolean);
+    const tooltipBits = [me.email, ...detailBits].filter(Boolean);
+    if (tooltipBits.length) {
+      document.querySelector(".profile").title = tooltipBits.join(" · ");
+    }
   } catch (e) {
     document.getElementById("welcomeName").textContent = "Student";
     document.getElementById("profileName").textContent = "Guest";
@@ -402,25 +513,135 @@ function renderDelta(elId, pct) {
   el.textContent = `${arrow} ${Math.abs(pct).toFixed(2)}% vs last session`;
 }
 
+function renderTxnRows(rows) {
+  if (!rows.length) return `<tr class="empty-row"><td colspan="5">No transactions yet.</td></tr>`;
+  return rows.map(r => `
+    <tr>
+      <td>${formatDate(r.date)}</td>
+      <td>${r.description}</td>
+      <td>${formatNaira(r.amount)}</td>
+      <td class="${r.status === 'paid' ? 'status-paid' : 'status-pending'}">• ${r.status === 'paid' ? 'Paid' : 'Pending'}</td>
+      <td>${r.receiptUrl ? `<a class="link" href="${r.receiptUrl}" target="_blank" rel="noopener">View Receipt</a>` : ""}</td>
+    </tr>
+  `).join("");
+}
+
+let _txnCache = null;
 async function loadTransactions() {
-  const body = document.getElementById("txnBody");
+  const dashBody = document.getElementById("txnBody");
+  const payBody = document.getElementById("paymentsBody");
   try {
     const rows = await api("/transactions"); // -> [{date, description, amount, status, receiptUrl}]
-    if (!rows.length) {
-      body.innerHTML = `<tr class="empty-row"><td colspan="5">No transactions yet.</td></tr>`;
+    _txnCache = rows;
+    const html = renderTxnRows(rows);
+    if (dashBody) dashBody.innerHTML = html;
+    if (payBody) payBody.innerHTML = html;
+  } catch (e) {
+    const errHtml = `<tr class="empty-row"><td colspan="5">Couldn't load transactions.</td></tr>`;
+    if (dashBody) dashBody.innerHTML = errHtml;
+    if (payBody) payBody.innerHTML = errHtml;
+    console.error(e);
+  }
+}
+
+let _coursesCache = null;
+async function loadCourses() {
+  const grid = document.getElementById("coursesGrid");
+  try {
+    const courses = _coursesCache || await api("/courses"); // -> [{id, fullname, shortname, summary, imageUrl, startDate, endDate, progressPct, completedActivities, totalActivities, sections, courseUrl}]
+    _coursesCache = courses;
+    if (!courses.length) {
+      grid.innerHTML = `<div class="empty-state"><h3>No enrolled courses</h3><p>Once you're enrolled in a course on Moodle it will show up here.</p></div>`;
       return;
     }
-    body.innerHTML = rows.map(r => `
-      <tr>
-        <td>${formatDate(r.date)}</td>
-        <td>${r.description}</td>
-        <td>${formatNaira(r.amount)}</td>
-        <td class="${r.status === 'paid' ? 'status-paid' : 'status-pending'}">• ${r.status === 'paid' ? 'Paid' : 'Pending'}</td>
-        <td>${r.receiptUrl ? `<a class="link" href="${r.receiptUrl}" target="_blank" rel="noopener">View Receipt</a>` : ""}</td>
-      </tr>
+    grid.innerHTML = courses.map(c => {
+      const total = c.totalActivities || 0;
+      const done = c.completedActivities || 0;
+      const pct = c.progressPct !== null && c.progressPct !== undefined ? c.progressPct : (total ? Math.round((done / total) * 100) : 0);
+      const dateRange = [c.startDate ? formatDate(c.startDate) : null, c.endDate ? formatDate(c.endDate) : null].filter(Boolean).join(" – ");
+      const sectionsHtml = (c.sections || []).map(sec => `
+        <div class="section-block">
+          <div class="section-name">${sec.name}</div>
+          ${sec.activities.map(a => {
+            const dotClass = a.completed === null ? "untracked" : (a.completed ? "done" : "");
+            return `<div class="activity-row"><span class="activity-dot ${dotClass}"></span>${a.name}</div>`;
+          }).join("")}
+        </div>
+      `).join("");
+      return `
+        <div class="course-card">
+          ${c.imageUrl ? `<img class="course-image" src="${c.imageUrl}" alt="">` : ""}
+          <div class="course-body">
+            <h4>${c.fullname}</h4>
+            <div class="shortname">${c.shortname || ""}</div>
+            ${c.summary ? `<p class="summary">${c.summary.length > 160 ? c.summary.slice(0, 160) + "…" : c.summary}</p>` : ""}
+            ${dateRange ? `<div class="meta-row"><span>${dateRange}</span></div>` : ""}
+            <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+            <div class="progress-label">${total ? `${done} of ${total} activities complete (${pct}%)` : "No trackable activities"}</div>
+            <a class="link" href="${c.courseUrl}" target="_blank" rel="noopener">Open course →</a>
+            ${sectionsHtml ? `<details><summary>Show topics & activities</summary>${sectionsHtml}</details>` : ""}
+          </div>
+        </div>`;
+    }).join("");
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state"><h3>Couldn't load courses</h3><p>${e.message}</p></div>`;
+    console.error(e);
+  }
+}
+
+async function loadGrades() {
+  const body = document.getElementById("gradesBody");
+  try {
+    const rows = await api("/grades"); // -> [{courseId, courseName, courseTotal, items:[{itemName, itemModule, percentage, grade, feedback}]}]
+    if (!rows.length) {
+      body.innerHTML = `<tr class="empty-row"><td colspan="4">No grades yet.</td></tr>`;
+      return;
+    }
+    const fmtPct = p => (p !== null && p !== undefined ? p.toFixed(1) + "%" : "—");
+    body.innerHTML = rows.map(r => {
+      const totalRow = `
+        <tr class="grade-course-row">
+          <td>${r.courseName}</td>
+          <td>${r.courseTotal?.grade ?? "—"}</td>
+          <td>${fmtPct(r.courseTotal?.percentage)}</td>
+          <td></td>
+        </tr>`;
+      const itemRows = (r.items || []).map(it => `
+        <tr class="grade-item-row">
+          <td>${it.itemName}</td>
+          <td>${it.grade ?? "—"}</td>
+          <td>${fmtPct(it.percentage)}</td>
+          <td class="feedback-cell">${it.feedback ?? ""}</td>
+        </tr>`).join("");
+      return totalRow + itemRows;
+    }).join("");
+  } catch (e) {
+    body.innerHTML = `<tr class="empty-row"><td colspan="4">Couldn't load grades.</td></tr>`;
+    console.error(e);
+  }
+}
+
+async function loadExams() {
+  const grid = document.getElementById("examsGrid");
+  try {
+    const exams = await api("/exams"); // -> [{id, name, courseId, timeopen, timeclose, quizUrl}]
+    if (!exams.length) {
+      grid.innerHTML = `<div class="empty-state">
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/></svg></div>
+        <h3>No exams found</h3>
+        <p>Either there are no quizzes in your enrolled courses yet, or <code>mod_quiz_get_quizzes_by_courses</code> hasn't been added to the Moodle web service the proxy authenticates as. Add it under External services in Moodle to enable this view.</p>
+      </div>`;
+      return;
+    }
+    grid.innerHTML = exams.map(x => `
+      <div class="course-card">
+        <h4>${x.name}</h4>
+        <div class="shortname">${x.timeopen ? "Opens " + formatDate(x.timeopen * 1000) : "No open date set"}${x.timeclose ? " · Closes " + formatDate(x.timeclose * 1000) : ""}</div>
+        <a class="link" href="${x.quizUrl}" target="_blank" rel="noopener">Open exam →</a>
+      </div>
     `).join("");
   } catch (e) {
-    body.innerHTML = `<tr class="empty-row"><td colspan="5">Couldn't load transactions.</td></tr>`;
+    grid.innerHTML = `<div class="empty-state"><h3>Couldn't load exams</h3><p>${e.message}</p></div>`;
     console.error(e);
   }
 }
@@ -429,6 +650,34 @@ function goToClass() {
   // Point this at your Moodle course/dashboard URL, e.g.:
   window.location.href = "/my-course.html";
 }
+
+/* ---------- Sidebar view routing ---------- */
+const viewLoaders = {
+  courses: loadCourses,
+  grades: loadGrades,
+  payments: loadTransactions,
+  exams: loadExams,
+};
+const loadedViews = new Set(["dashboard"]);
+
+document.querySelectorAll(".nav a[data-view]").forEach(link => {
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    const view = link.dataset.view;
+
+    document.querySelectorAll(".nav a[data-view]").forEach(a => a.classList.remove("active"));
+    link.classList.add("active");
+
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active-view"));
+    const target = document.getElementById(`view-${view}`);
+    if (target) target.classList.add("active-view");
+
+    if (!loadedViews.has(view) && viewLoaders[view]) {
+      loadedViews.add(view);
+      viewLoaders[view]();
+    }
+  });
+});
 
 loadProfile();
 loadAcademics();

@@ -59,16 +59,65 @@ async function callMoodle(wsfunction, params = {}) {
   return data;
 }
 
+// Strips HTML tags/entities from Moodle's rich-text fields (course summaries,
+// grade feedback, user profile "description") so the UI gets plain text.
+function stripHtml(html) {
+  if (!html) return null;
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim() || null;
+}
+
+// Moodle file URLs (avatars, course images, attachments) require the web
+// service token appended as a query param to be viewable outside a logged-in
+// browser session.
+function withToken(fileUrl) {
+  if (!fileUrl) return null;
+  const sep = fileUrl.includes("?") ? "&" : "?";
+  return `${fileUrl}${sep}token=${MOODLE_TOKEN}`;
+}
+
 /* ---------- Route handlers ---------- */
 
 // GET /api/me
-// Moodle functions used: core_webservice_get_site_info
+// Moodle functions used: core_webservice_get_site_info,
+//   core_user_get_users_by_field (richer profile — optional, degrades
+//   gracefully if not added to the web service)
 async function handleMe() {
   const info = await callMoodle("core_webservice_get_site_info");
+
+  let profile = {};
+  try {
+    const users = await callMoodle("core_user_get_users_by_field", {
+      field: "id",
+      "values[0]": info.userid,
+    });
+    profile = users?.[0] || {};
+  } catch (e) {
+    // core_user_get_users_by_field not enabled on the service — fine, we
+    // just fall back to what core_webservice_get_site_info already gave us.
+  }
+
   return {
     userid: info.userid,
     fullname: info.fullname,
     firstname: info.firstname || info.fullname.split(" ")[0],
+    email: profile.email || null,
+    department: profile.department || null,
+    institution: profile.institution || null,
+    city: profile.city || null,
+    country: profile.country || null,
+    bio: stripHtml(profile.description),
+    profileImageUrl: withToken(profile.profileimageurl || info.userpictureurl),
+    lastAccess: profile.lastaccess ? profile.lastaccess * 1000 : null,
+    firstAccess: profile.firstaccess ? profile.firstaccess * 1000 : null,
   };
 }
 
@@ -134,6 +183,163 @@ async function handleAcademicSummary(userid) {
   };
 }
 
+// GET /api/courses
+// Moodle functions used: core_enrol_get_users_courses,
+//   core_completion_get_activities_completion_status (per course),
+//   core_course_get_contents (per course — sections/activities)
+async function handleCourses(userid) {
+  const courses = await callMoodle("core_enrol_get_users_courses", { userid });
+  const result = [];
+
+  for (const course of courses) {
+    // Per-activity completion state, keyed by course-module id.
+    let completionByCmid = {};
+    try {
+      const completion = await callMoodle("core_completion_get_activities_completion_status", {
+        courseid: course.id,
+        userid,
+      });
+      for (const s of completion.statuses || []) completionByCmid[s.cmid] = s;
+    } catch (e) {
+      // Course may not have completion tracking enabled — leave empty.
+    }
+
+    // Full section/activity structure so the UI can show more than just a
+    // completed-count — actual topic and activity names.
+    let sections = [];
+    try {
+      const contents = await callMoodle("core_course_get_contents", { courseid: course.id });
+      sections = (contents || [])
+        .map(sec => ({
+          name: sec.name,
+          activities: (sec.modules || []).map(m => ({
+            id: m.id,
+            name: m.name,
+            modname: m.modname,
+            completed: completionByCmid[m.id]
+              ? (completionByCmid[m.id].state === 1 || completionByCmid[m.id].state === 2)
+              : null, // null = completion not tracked for this activity
+            url: m.url || null,
+          })),
+        }))
+        .filter(sec => sec.activities.length);
+    } catch (e) {
+      // core_course_get_contents not enabled, or course has restricted access.
+    }
+
+    const totalActivities = Object.keys(completionByCmid).length
+      || sections.reduce((n, s) => n + s.activities.length, 0);
+    const completedActivities = Object.values(completionByCmid).filter(s => s.state === 1 || s.state === 2).length;
+
+    const overviewImage = course.overviewfiles && course.overviewfiles[0]
+      ? withToken(course.overviewfiles[0].fileurl)
+      : null;
+
+    result.push({
+      id: course.id,
+      fullname: course.fullname,
+      shortname: course.shortname,
+      summary: stripHtml(course.summary),
+      imageUrl: overviewImage,
+      startDate: course.startdate ? course.startdate * 1000 : null,
+      endDate: course.enddate && course.enddate > 0 ? course.enddate * 1000 : null,
+      // Moodle 3.6+ can report an authoritative course-level progress % directly;
+      // fall back to our own activity-count math when it's not present.
+      progressPct: typeof course.progress === "number"
+        ? Math.round(course.progress)
+        : (totalActivities ? Math.round((completedActivities / totalActivities) * 100) : null),
+      completedActivities,
+      totalActivities,
+      sections,
+      courseUrl: `${MOODLE_URL}/course/view.php?id=${course.id}`,
+    });
+  }
+
+  return result;
+}
+
+// GET /api/grades
+// Moodle functions used: core_enrol_get_users_courses,
+//   gradereport_user_get_grade_items (per course)
+// gradereport_user_get_grade_items returns EVERY gradeable item in a course
+// (each assignment, quiz, etc.) plus a synthetic "course" item for the
+// overall total — we now surface all of it instead of only the total.
+async function handleGrades(userid) {
+  const courses = await callMoodle("core_enrol_get_users_courses", { userid });
+  const result = [];
+
+  for (const course of courses) {
+    let courseTotal = null;
+    let items = [];
+    try {
+      const grades = await callMoodle("gradereport_user_get_grade_items", {
+        courseid: course.id,
+        userid,
+      });
+      const gradeitems = grades.usergrades?.[0]?.gradeitems || [];
+
+      for (const gi of gradeitems) {
+        const pct = gi.percentageformatted ? parseFloat(gi.percentageformatted) : null;
+        const entry = {
+          itemName: gi.itemname || (gi.itemtype === "course" ? course.fullname : "Item"),
+          itemType: gi.itemtype,       // "course" or "mod"
+          itemModule: gi.itemmodule || null, // e.g. "assign", "quiz", "forum"
+          percentage: Number.isNaN(pct) ? null : pct,
+          grade: gi.gradeformatted && gi.gradeformatted !== "-" ? gi.gradeformatted : null,
+          feedback: stripHtml(gi.feedback),
+        };
+        if (gi.itemtype === "course") courseTotal = entry;
+        else items.push(entry);
+      }
+    } catch (e) {
+      // Grades may not be released yet for this course, or the report isn't
+      // enabled — leave courseTotal/items empty rather than failing the page.
+    }
+
+    result.push({
+      courseId: course.id,
+      courseName: course.fullname,
+      courseTotal,
+      items,
+    });
+  }
+
+  return result;
+}
+
+// GET /api/exams
+// Moodle function used: mod_quiz_get_quizzes_by_courses
+// NOTE: this function is NOT in the README's original list of functions to
+// add to the custom web service. If you want this view to show real data,
+// add mod_quiz_get_quizzes_by_courses to the service in Site administration
+// > Plugins > Web services > External services. Until then this returns an
+// empty list rather than failing the whole page.
+async function handleExams(userid) {
+  let courses;
+  try {
+    courses = await callMoodle("core_enrol_get_users_courses", { userid });
+  } catch (e) {
+    return [];
+  }
+  const courseids = courses.map(c => c.id);
+  if (!courseids.length) return [];
+
+  try {
+    const data = await callMoodle("mod_quiz_get_quizzes_by_courses", { courseids });
+    return (data.quizzes || []).map(q => ({
+      id: q.id,
+      name: q.name,
+      courseId: q.course,
+      timeopen: q.timeopen || null,
+      timeclose: q.timeclose || null,
+      quizUrl: `${MOODLE_URL}/mod/quiz/view.php?id=${q.coursemodule}`,
+    }));
+  } catch (e) {
+    // Function not enabled on the service, or no quizzes exist — empty is fine.
+    return [];
+  }
+}
+
 // GET /api/transactions
 // NOT a Moodle core concept. Wire this to whatever actually handles fees:
 //   - A Moodle payment/enrolment plugin's own web service, if it exposes one
@@ -162,6 +368,21 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/api/transactions") {
       const me = await handleMe();
       const data = await handleTransactions(CURRENT_USER_ID || me.userid);
+      return sendJson(res, data);
+    }
+    if (req.url === "/api/courses") {
+      const me = await handleMe();
+      const data = await handleCourses(CURRENT_USER_ID || me.userid);
+      return sendJson(res, data);
+    }
+    if (req.url === "/api/grades") {
+      const me = await handleMe();
+      const data = await handleGrades(CURRENT_USER_ID || me.userid);
+      return sendJson(res, data);
+    }
+    if (req.url === "/api/exams") {
+      const me = await handleMe();
+      const data = await handleExams(CURRENT_USER_ID || me.userid);
       return sendJson(res, data);
     }
 
