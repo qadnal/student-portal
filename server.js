@@ -1,33 +1,6 @@
 /**
  * Minimal proxy server between the dashboard (index.html) and a
  * Moodle-hosted LMS's Web Services REST API.
- *
- * WHY A PROXY AT ALL?
- * 1. Security: your Moodle web service token must never be sent to the
- *    browser. This server holds it in an environment variable and makes
- *    all Moodle calls itself.
- * 2. CORS: Moodle's REST endpoint is on a different origin than wherever
- *    you host index.html. Calling it directly from browser JS will be
- *    blocked by CORS unless you configure $CFG->allowcorsorigins in
- *    Moodle's config.php — even then, exposing the token client-side is
- *    not advisable. A same-origin proxy avoids both problems.
- *
- * SETUP ON THE MOODLE SIDE (as a Moodle admin):
- * 1. Site administration > General > Web services > Enable web services.
- * 2. Site administration > Plugins > Web services > Manage protocols
- *    > enable "REST protocol".
- * 3. Site administration > Plugins > Web services > External services
- *    > create a custom service (or use an existing one), and add the
- *    functions this proxy calls (listed next to each route below).
- * 4. Site administration > Plugins > Web services > Manage tokens
- *    > create a token for a dedicated service-account user (do NOT use
- *    your own admin account's token in production) scoped to the service
- *    from step 3.
- * 5. Put that token in MOODLE_TOKEN below (via environment variable).
- *
- * This file intentionally uses only Node's built-in fetch (Node 18+) and
- * a tiny static file server — no framework required. Swap in Express if
- * you prefer; the Moodle-calling logic is identical either way.
  */
 
 const http = require("http");
@@ -38,10 +11,6 @@ const MOODLE_URL = process.env.MOODLE_URL || "https://mylms.example.edu"; // no 
 const MOODLE_TOKEN = process.env.MOODLE_TOKEN || "REPLACE_ME";
 const PORT = process.env.PORT || 3000;
 
-// The signed-in user this demo serves. In a real deployment, resolve this
-// from your own session/auth layer (e.g. after the student logs into your
-// portal, or via Moodle's own login redirect + core_webservice_get_site_info
-// to identify who the token's calls are acting as).
 const CURRENT_USER_ID = process.env.DEMO_USER_ID || null;
 
 async function callMoodle(wsfunction, params = {}) {
@@ -59,8 +28,6 @@ async function callMoodle(wsfunction, params = {}) {
   return data;
 }
 
-// Strips HTML tags/entities from Moodle's rich-text fields (course summaries,
-// grade feedback, user profile "description") so the UI gets plain text.
 function stripHtml(html) {
   if (!html) return null;
   return html
@@ -75,9 +42,6 @@ function stripHtml(html) {
     .trim() || null;
 }
 
-// Moodle file URLs (avatars, course images, attachments) require the web
-// service token appended as a query param to be viewable outside a logged-in
-// browser session.
 function withToken(fileUrl) {
   if (!fileUrl) return null;
   const sep = fileUrl.includes("?") ? "&" : "?";
@@ -86,10 +50,6 @@ function withToken(fileUrl) {
 
 /* ---------- Route handlers ---------- */
 
-// GET /api/me
-// Moodle functions used: core_webservice_get_site_info,
-//   core_user_get_users_by_field (richer profile — optional, degrades
-//   gracefully if not added to the web service)
 async function handleMe() {
   const info = await callMoodle("core_webservice_get_site_info");
 
@@ -101,8 +61,7 @@ async function handleMe() {
     });
     profile = users?.[0] || {};
   } catch (e) {
-    // core_user_get_users_by_field not enabled on the service — fine, we
-    // just fall back to what core_webservice_get_site_info already gave us.
+    // core_user_get_users_by_field fallback
   }
 
   return {
@@ -121,21 +80,11 @@ async function handleMe() {
   };
 }
 
-// GET /api/academic-summary
-// Moodle functions used: core_enrol_get_users_courses,
-//   core_completion_get_activities_completion_status (per course),
-//   gradereport_user_get_grade_items (per course)
-//
-// NOTE ON GPA/CGPA: Moodle has no built-in "GPA" or "CGPA" field — those
-// are institution-specific groupings of course grades. The calculation
-// below is a placeholder (average of course percentage grades, scaled to
-// a 5-point scale) and almost certainly needs to be replaced with your
-// institution's actual grading policy/weighting.
 async function handleAcademicSummary(userid) {
   const courses = await callMoodle("core_enrol_get_users_courses", { userid });
 
   let completedUnits = 0;
-  let requiredUnits = null; // pull from your SIS/programme config if available
+  let requiredUnits = null; 
   let gradePercentages = [];
 
   for (const course of courses) {
@@ -146,9 +95,7 @@ async function handleAcademicSummary(userid) {
       });
       const activities = completion.statuses || [];
       completedUnits += activities.filter(a => a.state === 1 || a.state === 2).length;
-    } catch (e) {
-      // Course may not track completion — skip silently.
-    }
+    } catch (e) {}
 
     try {
       const grades = await callMoodle("gradereport_user_get_grade_items", {
@@ -161,38 +108,30 @@ async function handleAcademicSummary(userid) {
         const pct = parseFloat(courseTotal.percentageformatted);
         if (!Number.isNaN(pct)) gradePercentages.push(pct);
       }
-    } catch (e) {
-      // Grades may not be released yet for this course — skip.
-    }
+    } catch (e) {}
   }
 
   const avgPct = gradePercentages.length
     ? gradePercentages.reduce((a, b) => a + b, 0) / gradePercentages.length
     : null;
-  // Placeholder 0-100% -> 0-5.0 GPA-scale mapping. Replace with your
-  // institution's real grade-to-point table.
+
   const toGpaScale = pct => (pct === null ? null : Math.round((pct / 100) * 5 * 100) / 100);
 
   return {
     lastGpa: toGpaScale(avgPct) ?? 0,
-    lastGpaDeltaPct: null,   // requires storing/comparing a previous session's figure
-    cgpa: toGpaScale(avgPct) ?? 0, // same placeholder calc; replace with real cumulative logic
+    lastGpaDeltaPct: null,
+    cgpa: toGpaScale(avgPct) ?? 0,
     cgpaDeltaPct: null,
     completedUnits,
     requiredUnits,
   };
 }
 
-// GET /api/courses
-// Moodle functions used: core_enrol_get_users_courses,
-//   core_completion_get_activities_completion_status (per course),
-//   core_course_get_contents (per course — sections/activities)
 async function handleCourses(userid) {
   const courses = await callMoodle("core_enrol_get_users_courses", { userid });
   const result = [];
 
   for (const course of courses) {
-    // Per-activity completion state, keyed by course-module id.
     let completionByCmid = {};
     try {
       const completion = await callMoodle("core_completion_get_activities_completion_status", {
@@ -200,12 +139,8 @@ async function handleCourses(userid) {
         userid,
       });
       for (const s of completion.statuses || []) completionByCmid[s.cmid] = s;
-    } catch (e) {
-      // Course may not have completion tracking enabled — leave empty.
-    }
+    } catch (e) {}
 
-    // Full section/activity structure so the UI can show more than just a
-    // completed-count — actual topic and activity names.
     let sections = [];
     try {
       const contents = await callMoodle("core_course_get_contents", { courseid: course.id });
@@ -218,14 +153,12 @@ async function handleCourses(userid) {
             modname: m.modname,
             completed: completionByCmid[m.id]
               ? (completionByCmid[m.id].state === 1 || completionByCmid[m.id].state === 2)
-              : null, // null = completion not tracked for this activity
+              : null,
             url: m.url || null,
           })),
         }))
         .filter(sec => sec.activities.length);
-    } catch (e) {
-      // core_course_get_contents not enabled, or course has restricted access.
-    }
+    } catch (e) {}
 
     const totalActivities = Object.keys(completionByCmid).length
       || sections.reduce((n, s) => n + s.activities.length, 0);
@@ -243,8 +176,6 @@ async function handleCourses(userid) {
       imageUrl: overviewImage,
       startDate: course.startdate ? course.startdate * 1000 : null,
       endDate: course.enddate && course.enddate > 0 ? course.enddate * 1000 : null,
-      // Moodle 3.6+ can report an authoritative course-level progress % directly;
-      // fall back to our own activity-count math when it's not present.
       progressPct: typeof course.progress === "number"
         ? Math.round(course.progress)
         : (totalActivities ? Math.round((completedActivities / totalActivities) * 100) : null),
@@ -258,12 +189,6 @@ async function handleCourses(userid) {
   return result;
 }
 
-// GET /api/grades
-// Moodle functions used: core_enrol_get_users_courses,
-//   gradereport_user_get_grade_items (per course)
-// gradereport_user_get_grade_items returns EVERY gradeable item in a course
-// (each assignment, quiz, etc.) plus a synthetic "course" item for the
-// overall total — we now surface all of it instead of only the total.
 async function handleGrades(userid) {
   const courses = await callMoodle("core_enrol_get_users_courses", { userid });
   const result = [];
@@ -282,8 +207,8 @@ async function handleGrades(userid) {
         const pct = gi.percentageformatted ? parseFloat(gi.percentageformatted) : null;
         const entry = {
           itemName: gi.itemname || (gi.itemtype === "course" ? course.fullname : "Item"),
-          itemType: gi.itemtype,       // "course" or "mod"
-          itemModule: gi.itemmodule || null, // e.g. "assign", "quiz", "forum"
+          itemType: gi.itemtype,
+          itemModule: gi.itemmodule || null,
           percentage: Number.isNaN(pct) ? null : pct,
           grade: gi.gradeformatted && gi.gradeformatted !== "-" ? gi.gradeformatted : null,
           feedback: stripHtml(gi.feedback),
@@ -291,10 +216,7 @@ async function handleGrades(userid) {
         if (gi.itemtype === "course") courseTotal = entry;
         else items.push(entry);
       }
-    } catch (e) {
-      // Grades may not be released yet for this course, or the report isn't
-      // enabled — leave courseTotal/items empty rather than failing the page.
-    }
+    } catch (e) {}
 
     result.push({
       courseId: course.id,
@@ -307,13 +229,6 @@ async function handleGrades(userid) {
   return result;
 }
 
-// GET /api/exams
-// Moodle function used: mod_quiz_get_quizzes_by_courses
-// NOTE: this function is NOT in the README's original list of functions to
-// add to the custom web service. If you want this view to show real data,
-// add mod_quiz_get_quizzes_by_courses to the service in Site administration
-// > Plugins > Web services > External services. Until then this returns an
-// empty list rather than failing the whole page.
 async function handleExams(userid) {
   let courses;
   try {
@@ -335,19 +250,10 @@ async function handleExams(userid) {
       quizUrl: `${MOODLE_URL}/mod/quiz/view.php?id=${q.coursemodule}`,
     }));
   } catch (e) {
-    // Function not enabled on the service, or no quizzes exist — empty is fine.
     return [];
   }
 }
 
-// GET /api/transactions
-// NOT a Moodle core concept. Wire this to whatever actually handles fees:
-//   - A Moodle payment/enrolment plugin's own web service, if it exposes one
-//     (core payment API added in Moodle 3.11+ covers gateway config, not a
-//     per-user statement — most fee plugins are custom per institution), OR
-//   - Your separate SIS/finance system's API/database, called from here.
-// This is stubbed to return an empty list so the UI has a real "no data"
-// state rather than fake numbers.
 async function handleTransactions(userid) {
   return [];
 }
@@ -355,6 +261,16 @@ async function handleTransactions(userid) {
 /* ---------- Tiny router + static file server ---------- */
 
 const server = http.createServer(async (req, res) => {
+  // Handle CORS preflight request
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    });
+    return res.end();
+  }
+
   try {
     if (req.url === "/api/me") {
       const data = await handleMe();
@@ -395,7 +311,12 @@ const server = http.createServer(async (req, res) => {
 });
 
 function sendJson(res, obj, status = 200) {
-  res.writeHead(status, { "Content-Type": "application/json" });
+  res.writeHead(status, {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*", // Enables CORS for GO54 / any origin
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  });
   res.end(JSON.stringify(obj));
 }
 
