@@ -263,10 +263,12 @@ async function handleTransactions(userid) {
 const server = http.createServer(async (req, res) => {
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
+    const origin = req.headers.origin || "https://mylms.phiz.com.ng";
     res.writeHead(204, {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": "true",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
     });
     return res.end();
   }
@@ -274,48 +276,50 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.url === "/api/me") {
       const data = await handleMe();
-      return sendJson(res, data);
+      return sendJson(req, res, data);
     }
     if (req.url === "/api/academic-summary") {
       const me = await handleMe();
       const data = await handleAcademicSummary(CURRENT_USER_ID || me.userid);
-      return sendJson(res, data);
+      return sendJson(req, res, data);
     }
     if (req.url === "/api/transactions") {
       const me = await handleMe();
       const data = await handleTransactions(CURRENT_USER_ID || me.userid);
-      return sendJson(res, data);
+      return sendJson(req, res, data);
     }
     if (req.url === "/api/courses") {
       const me = await handleMe();
       const data = await handleCourses(CURRENT_USER_ID || me.userid);
-      return sendJson(res, data);
+      return sendJson(req, res, data);
     }
     if (req.url === "/api/grades") {
       const me = await handleMe();
       const data = await handleGrades(CURRENT_USER_ID || me.userid);
-      return sendJson(res, data);
+      return sendJson(req, res, data);
     }
     if (req.url === "/api/exams") {
       const me = await handleMe();
       const data = await handleExams(CURRENT_USER_ID || me.userid);
-      return sendJson(res, data);
+      return sendJson(req, res, data);
     }
 
     // Static files (index.html, etc.)
     serveStatic(req, res);
   } catch (err) {
     console.error(err);
-    sendJson(res, { error: err.message }, 500);
+    sendJson(req, res, { error: err.message }, 500);
   }
 });
 
-function sendJson(res, obj, status = 200) {
+function sendJson(req, res, obj, status = 200) {
+  const origin = req.headers.origin || "https://mylms.phiz.com.ng";
   res.writeHead(status, {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*", // Enables CORS for GO54 / any origin
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
   });
   res.end(JSON.stringify(obj));
 }
